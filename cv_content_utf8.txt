@@ -1,0 +1,72 @@
+Ritika Kaushik 
+LinkedIn: https://www.linkedin.com/in/ritika-kaushik24                                                   Email:  ritikakaushik2484@gmail.com 
+GitHub:   https://github.com/Ritika2484                                                                                       Mobile:    +91-9369554806 
+ 
+S
+KILLS
+ 
+•   Languages:              JavaScript, Python, C++, Java,  
+•   Frameworks:            NodeJS,  ReactJS, Tailwind CSS, Mongoose, ExpressJS 
+•   Tools/Platforms:       MySQL,  MongoDB, PostgreSQL, Postman, Git, Vercel 
+•   Soft Skills:                Problem-Solving, Team Player, Adaptability, Leadership 
+I
+NTERNSHIP
+ 
+Local Startup KIRIJO (IIT Guwahati) |  
+Link   
+                                                              
+Aug’ 25-Jan’26
+ 
+ 
+•     Led the frontend development of the  Kirijo  prototype  using  React  + Vite,  delivering  a responsive,  high -performance  
+UI from Figma mockups.    
+•     Implemented modular components,     client -side routing,    and  optimized  performance through   lazy loading   and 
+bundle size reduction.  
+•     Collaborated remotely with backend and design teams to integrate  APIs, handle asynchronous  data, and ensure 
+smooth user experience.  
+ 
+P
+ROJECTS
+ 
+Magic -Tales –Story Book for Children     |
+ Link                                                                                       Dec’ 25 
+     Developed  an  interactive  animation   -based  web  platform  as  the  core  objective  of the  project,     enabling  users  to 
+explore engaging animated content through a smooth and responsive interface.          
+     Delivered  rich  animated  experiences,  user     -friendly  navigation,  real   -time  content  updates,  and  secure  data 
+management, achieving an engaging, modern, and performance     -driven animation platform.   
+     Tech Used : ReactJS, ExpressJS, MongoDB,    NodeJS  
+AI–Powered Log Management System |
+Link                                                                                          Apr’ 25 
+ 
+•   Developed a role -based AI Log Management System enabling secure authentication, question handling, and real   -
+time access to stored data through a centralized web interface.  
+•   Enabled  intelligent  search,  admin-controlled  updates,  and  dynamic  content  rendering  to  improve  data  retrieval 
+efficiency and support faster decision -making. 
+•   Tech Used: HTML,CSS JavaScript, PHP,MYSQL  
+ 
+C
+ERTIFICATES
+ 
+ 
+•   MongoDB Certified Developer | MongoDB University                                                                                                Mar’ 26  
+•   Problem Solving Skills | HackerRank                                                                                                                           Mar’ 26              
+•   Competitive Coding & Dynamic Programming |  CipherSchools                                                                                 Jan’ 26  
+•   Data Structure Algorithms | CipherSchools                                                                                                                  Jul’ 25 
+•   Privacy and security in social media | NPTEL                                                                                                       Apr’ 25 
+ 
+A
+CHIEVEMENTS
+ 
+•    Achieved a milestone of solving  250+ questions on across multiple  platforms 
+•    Accomplished 5-star rating in C++ in Hacker Rank  
+•    Accomplished 5-star rating in P roblem Solving  in Hacker Rank  
+E
+DUCATION
+ 
+     Lovely Professional University                                                                                                               Phagwara, Punjab  
+Bachelor  of  Technology   in  Computer  Science  and  Engineering;  CGPA:  6.89                                  Since  Aug’  23 
+     Madhav  public  school                                                                                                                            Gorakhpur, UP 
+Higher   Secondary:   84%                                                                                                                         Apr’ 21– Mar’ 22 
+     Saraswati  Balika  Vidyalaya                                                                                                                   Gorakhpur, UP 
+Matriculation:   94%                                                                                                                                Apr’ 19  –  Mar’ 20 
+----------------Page (0) Break----------------
