@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import axios from 'axios';
+import emailjs from '@emailjs/browser';
 import './index.css';
 import { WavyBackground } from './components/wavy-background';
 import MarqueeDefault from 'react-fast-marquee';
@@ -62,17 +63,76 @@ const Typewriter = ({ words, delay = 2000 }) => {
   return <span>{currentText}</span>;
 };
 
-const FadeIn = ({ children, delay = 0, className = '', style = {} }) => (
+const FadeIn = ({ children, delay = 0, y = 40, duration = 0.8, className = '', style = {} }) => (
   <motion.div
-    initial={{ opacity: 0, y: 40 }}
+    initial={{ opacity: 0, y }}
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: true, margin: "-100px" }}
-    transition={{ duration: 0.8, delay, ease: [0.25, 1, 0.5, 1] }}
+    transition={{ duration, delay, ease: [0.16, 1, 0.3, 1] }}
     className={className}
     style={style}
   >
     {children}
   </motion.div>
+);
+
+const StaggerContainer = ({ children, className = '', style = {}, as = 'div' }) => {
+  const Component = motion[as] || motion.div;
+  return (
+    <Component
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: "-100px" }}
+      variants={{
+        hidden: {},
+        visible: {
+          transition: {
+            staggerChildren: 0.12
+          }
+        }
+      }}
+      className={className}
+      style={style}
+    >
+      {children}
+    </Component>
+  );
+};
+
+const StaggerChild = ({ children, className = '', style = {}, y = 30, scale = 0.98, as = 'div' }) => {
+  const Component = motion[as] || motion.div;
+  return (
+    <Component
+      variants={{
+        hidden: { opacity: 0, y, scale },
+        visible: {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          transition: {
+            type: "spring",
+            stiffness: 80,
+            damping: 18,
+            mass: 0.5
+          }
+        }
+      }}
+      className={className}
+      style={style}
+    >
+      {children}
+    </Component>
+  );
+};
+
+const StaggerTiltCard = ({ children, className = '', style = {}, y = 30, scale = 0.98 }) => (
+  <StaggerChild y={y} scale={scale} style={{ display: 'flex', width: '100%', height: '100%' }}>
+    <Tilt tiltMaxAngleX={3} tiltMaxAngleY={3} glareEnable={true} glareMaxOpacity={0.05} glareColor="var(--primary-blue)" glarePosition="all" style={{ width: '100%', display: 'flex' }}>
+      <div className={`minimal-card ${className}`} style={{ width: '100%', display: 'flex', flexDirection: 'column', ...style }}>
+        {children}
+      </div>
+    </Tilt>
+  </StaggerChild>
 );
 
 const TiltCard = ({ children, delay = 0, className = '', style = {} }) => (
@@ -88,6 +148,9 @@ const TiltCard = ({ children, delay = 0, className = '', style = {} }) => (
 function App() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState('home');
+  const [visible, setVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
 
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
   const [submitStatus, setSubmitStatus] = useState('');
@@ -98,19 +161,85 @@ function App() {
   const handleSubmit = (e) => {
     e.preventDefault();
     setSubmitStatus('Sending...');
-    setTimeout(() => {
-      setSubmitStatus('Message sent successfully!');
-      setFormData({ name: '', email: '', message: '' });
-    }, 1000);
+
+    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+    const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+    // Check if EmailJS credentials are still using placeholder or empty values
+    if (
+      !serviceId || serviceId === 'your_service_id' ||
+      !templateId || templateId === 'your_template_id' ||
+      !publicKey || publicKey === 'your_public_key'
+    ) {
+      console.warn("EmailJS credentials are not configured in your .env file.");
+      setSubmitStatus('Error: Email service not configured. Please set your credentials in the .env file.');
+      return;
+    }
+
+    const templateParams = {
+      from_name: formData.name,
+      from_email: formData.email,
+      message: formData.message,
+      to_name: 'Ritika Kaushik'
+    };
+
+    emailjs.send(serviceId, templateId, templateParams, publicKey)
+      .then((response) => {
+        console.log('EmailJS Success:', response.status, response.text);
+        setSubmitStatus('Message sent successfully!');
+        setFormData({ name: '', email: '', message: '' });
+      }, (err) => {
+        console.error('EmailJS Error:', err);
+        setSubmitStatus(`Failed to send message: ${err.text || 'Please try again later'}`);
+      });
   };
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 50) setScrolled(true);
-      else setScrolled(false);
+      const currentScrollY = window.scrollY;
+      
+      // Control scrolled styling
+      if (currentScrollY > 50) {
+        setScrolled(true);
+      } else {
+        setScrolled(false);
+      }
+
+      // Control show/hide based on scroll direction
+      if (currentScrollY > lastScrollY && currentScrollY > 150) {
+        setVisible(false); // scrolling down
+      } else {
+        setVisible(true); // scrolling up
+      }
+
+      setLastScrollY(currentScrollY);
     };
-    window.addEventListener('scroll', handleScroll);
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
+  }, [lastScrollY]);
+
+  useEffect(() => {
+    const sections = document.querySelectorAll('section');
+    const observerOptions = {
+      root: null,
+      rootMargin: '-30% 0px -60% 0px',
+      threshold: 0
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          setActiveSection(entry.target.id || 'home');
+        }
+      });
+    }, observerOptions);
+
+    sections.forEach((section) => observer.observe(section));
+    return () => {
+      sections.forEach((section) => observer.unobserve(section));
+    };
   }, []);
 
   useEffect(() => {
@@ -134,34 +263,71 @@ function App() {
 
   const closeMenu = () => setMenuOpen(false);
 
+  const navItems = [
+    { id: 'about', label: 'About' },
+    { id: 'skills', label: 'Skills' },
+    { id: 'projects', label: 'Projects' },
+    { id: 'experience', label: 'Experience' },
+    { id: 'education', label: 'Education' },
+    { id: 'contact', label: 'Contact' }
+  ];
+
   return (
     <>
       <CustomCursor />
       {/* Navbar */}
-      <nav className={`navbar ${scrolled ? 'scrolled' : ''}`}>
+      <motion.nav 
+        className={`navbar ${scrolled ? 'scrolled' : ''}`}
+        initial={{ y: -100 }}
+        animate={{ y: visible ? 0 : -100 }}
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      >
         <div className="nav-content">
-          <a href="#" className="logo" onClick={closeMenu}>RK</a>
+          <motion.a 
+            href="#" 
+            className="logo" 
+            onClick={closeMenu}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            RK
+          </motion.a>
           <div className="nav-links">
-            <a href="#about" className="nav-link">About</a>
-            <a href="#skills" className="nav-link">Skills</a>
-            <a href="#projects" className="nav-link">Projects</a>
-            <a href="#experience" className="nav-link">Experience</a>
-            <a href="#education" className="nav-link">Education</a>
-            <a href="#contact" className="nav-link">Contact</a>
+            {navItems.map((item) => (
+              <a
+                key={item.id}
+                href={`#${item.id}`}
+                className={`nav-link ${activeSection === item.id ? 'active' : ''}`}
+                style={{ position: 'relative' }}
+              >
+                {item.label}
+                {activeSection === item.id && (
+                  <motion.span
+                    layoutId="active-nav-underline"
+                    className="nav-underline"
+                    transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                  />
+                )}
+              </a>
+            ))}
           </div>
           <button className="menu-btn" onClick={() => setMenuOpen(!menuOpen)}>
             <i className={`fas ${menuOpen ? 'fa-times' : 'fa-bars'}`}></i>
           </button>
         </div>
         <div className={`mobile-menu ${menuOpen ? 'active' : ''}`}>
-          <a href="#about" className="mobile-link" onClick={closeMenu}>About</a>
-          <a href="#skills" className="mobile-link" onClick={closeMenu}>Skills</a>
-          <a href="#projects" className="mobile-link" onClick={closeMenu}>Projects</a>
-          <a href="#experience" className="mobile-link" onClick={closeMenu}>Experience</a>
-          <a href="#education" className="mobile-link" onClick={closeMenu}>Education</a>
-          <a href="#contact" className="mobile-link" onClick={closeMenu}>Contact</a>
+          {navItems.map((item) => (
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              className={`mobile-link ${activeSection === item.id ? 'active' : ''}`}
+              onClick={closeMenu}
+            >
+              {item.label}
+            </a>
+          ))}
         </div>
-      </nav>
+      </motion.nav>
 
       <main>
         {/* Hero Section */}
@@ -207,8 +373,7 @@ function App() {
                   className="social-links"
                 >
                   <a href="https://github.com/Ritika2484" target="_blank" rel="noreferrer"><i className="fab fa-github"></i></a>
-                  <a href="https://www.linkedin.com/in/ritika-kaushik24" target="_blank" rel="noreferrer"><i className="fab fa-linkedin"></i></a>
-                  <a href="mailto:ritikakaushik2484@gmail.com"><i className="fas fa-envelope"></i></a>
+                  <a href="https://www.linkedin.com/in/ritika-kaushik24/" target="_blank" rel="noreferrer"><i className="fab fa-linkedin"></i></a>
                 </motion.div>
               </div>
 
@@ -242,19 +407,19 @@ function App() {
         <section id="about" className="section section-light">
           <div className="container">
             <FadeIn><h2 className="section-title">ABOUT <span className="gradient-text">ME</span></h2></FadeIn>
-            <div className="about-grid">
-              <TiltCard delay={0.1} className="about-card">
+            <StaggerContainer className="about-grid">
+              <StaggerTiltCard className="about-card">
                 <div className="about-icon"><i className="fas fa-user-graduate"></i></div>
                 <h3>B.Tech CSE Student</h3>
                 <p>Lovely Professional University</p>
                 <p className="highlight" style={{ marginTop: '0.5rem' }}>CGPA: 6.89</p>
-              </TiltCard>
-              <TiltCard delay={0.2} className="about-card">
+              </StaggerTiltCard>
+              <StaggerTiltCard className="about-card">
                 <div className="about-icon"><i className="fas fa-laptop-code"></i></div>
                 <h3>Passionate Developer</h3>
                 <p>Strong interest in frontend UI development, reactive applications, database management, and building robust backend services. Driven by a problem-solving mindset and continuous learning.</p>
-              </TiltCard>
-            </div>
+              </StaggerTiltCard>
+            </StaggerContainer>
           </div>
         </section>
 
@@ -262,32 +427,32 @@ function App() {
         <section id="skills" className="section section-dark">
           <div className="container">
             <FadeIn><h2 className="section-title">MY <span className="gradient-text">SKILLS</span></h2></FadeIn>
-            <div className="skills-grid">
-              <TiltCard delay={0.1} className="skill-category">
+            <StaggerContainer className="skills-grid">
+              <StaggerTiltCard className="skill-category">
                 <h3><i className="fas fa-code"></i> Languages</h3>
                 <div className="skill-tags">
                   <span>JavaScript</span><span>Python</span><span>C++</span><span>Java</span><span>PHP</span><span>C</span>
                 </div>
-              </TiltCard>
-              <TiltCard delay={0.2} className="skill-category">
+              </StaggerTiltCard>
+              <StaggerTiltCard className="skill-category">
                 <h3><i className="fas fa-layer-group"></i> Frameworks</h3>
                 <div className="skill-tags">
                   <span>ReactJS</span><span>NextJs</span><span>NodeJS</span><span>ExpressJS</span><span>Mongoose</span><span>React-Native</span><span>Laravel</span>
                 </div>
-              </TiltCard>
-              <TiltCard delay={0.3} className="skill-category">
+              </StaggerTiltCard>
+              <StaggerTiltCard className="skill-category">
                 <h3><i className="fas fa-database"></i> Tools</h3>
                 <div className="skill-tags">
                   <span>MongoDB</span><span>MySQL</span><span>PostgreSQL</span><span>Postman</span><span>Git</span><span>AWS</span><span>Dockerization</span><span>Kubernetes</span><span>CI/CD</span>
                 </div>
-              </TiltCard>
-              <TiltCard delay={0.4} className="skill-category">
+              </StaggerTiltCard>
+              <StaggerTiltCard className="skill-category">
                 <h3><i className="fas fa-users"></i> Soft Skills</h3>
                 <div className="skill-tags">
                   <span>Problem-Solving</span><span>Team Player</span><span>Adaptability</span><span>Leadership</span>
                 </div>
-              </TiltCard>
-            </div>
+              </StaggerTiltCard>
+            </StaggerContainer>
           </div>
         </section>
 
@@ -295,39 +460,106 @@ function App() {
         <section id="projects" className="section section-light">
           <div className="container">
             <FadeIn><h2 className="section-title">FEATURED <span className="gradient-text">PROJECTS</span></h2></FadeIn>
-            <div className="projects-grid">
-              <TiltCard delay={0.1} className="project-card">
-                <div className="project-tags">
+            <StaggerContainer className="projects-grid">
+              <StaggerTiltCard className="project-card alumni-card">
+                {/* SVG Network/Community nodes background */}
+                <svg className="network-bg-nodes" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <circle cx="15" cy="25" r="1.2" fill="var(--primary-blue)" />
+                  <circle cx="85" cy="15" r="1.8" fill="var(--primary-blue)" />
+                  <circle cx="45" cy="75" r="1.2" fill="var(--primary-blue)" />
+                  <circle cx="90" cy="85" r="1.5" fill="var(--primary-blue)" />
+                  <circle cx="25" cy="60" r="1" fill="var(--primary-blue)" />
+                  <line x1="15" y1="25" x2="25" y2="60" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                  <line x1="25" y1="60" x2="45" y2="75" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                  <line x1="85" y1="15" x2="45" y2="75" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                  <line x1="85" y1="15" x2="90" y2="85" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                  <line x1="45" y1="75" x2="90" y2="85" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                </svg>
+
+                <div className="project-tags alumni-tags" style={{ zIndex: 1 }}>
+                  <span>ReactJS</span><span>Laravel</span><span>MySQL</span><span>REST API</span><span>JWT Auth</span>
+                </div>
+                <h3 style={{ zIndex: 1, letterSpacing: '-0.02em', fontWeight: '800' }}>Alumni Networking Platform</h3>
+                <p style={{ zIndex: 1, lineHeight: '1.6' }}>
+                  A premium, high-performance professional network designed to connect alumni and students. Built with an elegant React frontend, Laravel backend, and MySQL database, it features secure JWT authentication, direct mentorship matching, dynamic job boards, and fully optimized RESTful APIs for real-time engagement.
+                </p>
+                <div className="project-links" style={{ zIndex: 1 }}>
+                  <a href="https://github.com/Ritika2484/Alumii" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">
+                    <i className="fab fa-github"></i> GitHub
+                  </a>
+                </div>
+              </StaggerTiltCard>
+              <StaggerTiltCard className="project-card alumni-card">
+                {/* SVG Queue Hub nodes background */}
+                <svg className="network-bg-nodes" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <circle cx="20" cy="20" r="1.5" fill="var(--primary-blue)" />
+                  <circle cx="80" cy="30" r="1" fill="var(--primary-blue)" />
+                  <circle cx="50" cy="65" r="1.8" fill="var(--primary-blue)" />
+                  <circle cx="15" cy="80" r="1.2" fill="var(--primary-blue)" />
+                  <circle cx="85" cy="75" r="1.3" fill="var(--primary-blue)" />
+                  <line x1="20" y1="20" x2="50" y2="65" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                  <line x1="80" y1="30" x2="50" y2="65" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                  <line x1="15" y1="80" x2="50" y2="65" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                  <line x1="85" y1="75" x2="50" y2="65" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                </svg>
+
+                <div className="project-tags alumni-tags" style={{ zIndex: 1 }}>
                   <span>MERN</span><span>Socket.IO</span><span>MongoDB Atlas</span><span>AWS</span>
                 </div>
-                <h3>ServeQ: A Real-time Smart Queue Management Platform</h3>
-                <p>Designed a scalable real-time queue management platform with role-based access control. Merged Socket.IO for live tracking, improving real-time data processing and achieving a ~20% reduction in average wait times.</p>
-                <div className="project-links">
+                <h3 style={{ zIndex: 1, letterSpacing: '-0.02em', fontWeight: '800' }}>ServeQ: A Real-time Smart Queue Management Platform</h3>
+                <p style={{ zIndex: 1, lineHeight: '1.6' }}>Designed a scalable real-time queue management platform with role-based access control. Merged Socket.IO for live tracking, improving real-time data processing and achieving a ~20% reduction in average wait times.</p>
+                <div className="project-links" style={{ zIndex: 1 }}>
                   <a href="https://github.com/Ritika2484" className="btn btn-outline btn-sm"><i className="fab fa-github"></i> GitHub</a>
                   <a href="https://smart-queue-blond.vercel.app/" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm"><i className="fas fa-external-link-alt"></i> Live Demo</a>
                 </div>
-              </TiltCard>
-              <TiltCard delay={0.2} className="project-card">
-                <div className="project-tags">
+              </StaggerTiltCard>
+              <StaggerTiltCard className="project-card alumni-card">
+                {/* SVG Constellation nodes background */}
+                <svg className="network-bg-nodes" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <circle cx="10" cy="35" r="1.3" fill="var(--primary-blue)" />
+                  <circle cx="90" cy="25" r="1.5" fill="var(--primary-blue)" />
+                  <circle cx="35" cy="15" r="1.2" fill="var(--primary-blue)" />
+                  <circle cx="70" cy="80" r="1.6" fill="var(--primary-blue)" />
+                  <circle cx="30" cy="70" r="1" fill="var(--primary-blue)" />
+                  <line x1="10" y1="35" x2="35" y2="15" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                  <line x1="90" y1="25" x2="70" y2="80" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                  <line x1="30" y1="70" x2="70" y2="80" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                  <line x1="35" y1="15" x2="70" y2="80" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                </svg>
+
+                <div className="project-tags alumni-tags" style={{ zIndex: 1 }}>
                   <span>ReactJS</span><span>ExpressJS</span><span>MongoDB</span><span>NodeJS</span>
                 </div>
-                <h3>Magic-Tales – Story Book for Children</h3>
-                <p>Developed an interactive animation-based web platform enabling users to explore engaging animated content through a smooth and responsive interface. Delivered rich animated experiences, real-time content updates, and secure data management.</p>
-                <div className="project-links">
+                <h3 style={{ zIndex: 1, letterSpacing: '-0.02em', fontWeight: '800' }}>Magic-Tales – Story Book for Children</h3>
+                <p style={{ zIndex: 1, lineHeight: '1.6' }}>Developed an interactive animation-based web platform enabling users to explore engaging animated content through a smooth and responsive interface. Delivered rich animated experiences, real-time content updates, and secure data management.</p>
+                <div className="project-links" style={{ zIndex: 1 }}>
                   <a href="https://github.com/Ritika2484/Animation-Project" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm"><i className="fab fa-github"></i> GitHub</a>
                 </div>
-              </TiltCard>
-              <TiltCard delay={0.3} className="project-card">
-                <div className="project-tags">
+              </StaggerTiltCard>
+              <StaggerTiltCard className="project-card alumni-card">
+                {/* SVG Neural network nodes background */}
+                <svg className="network-bg-nodes" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <circle cx="30" cy="25" r="1" fill="var(--primary-blue)" />
+                  <circle cx="70" cy="25" r="1" fill="var(--primary-blue)" />
+                  <circle cx="30" cy="75" r="1" fill="var(--primary-blue)" />
+                  <circle cx="70" cy="75" r="1" fill="var(--primary-blue)" />
+                  <circle cx="50" cy="50" r="1.8" fill="var(--primary-blue)" />
+                  <line x1="30" y1="25" x2="50" y2="50" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                  <line x1="70" y1="25" x2="50" y2="50" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                  <line x1="30" y1="75" x2="50" y2="50" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                  <line x1="70" y1="75" x2="50" y2="50" stroke="var(--primary-blue)" stroke-width="0.15" stroke-dasharray="1 1" />
+                </svg>
+
+                <div className="project-tags alumni-tags" style={{ zIndex: 1 }}>
                   <span>HTML/CSS</span><span>JavaScript</span><span>PHP</span><span>MySQL</span>
                 </div>
-                <h3>AI–Powered Log Management System</h3>
-                <p>Developed a role-based AI Log Management System enabling secure authentication, question handling, and real-time access to stored data. Enabled intelligent search and admin-controlled updates to improve data retrieval efficiency.</p>
-                <div className="project-links">
+                <h3 style={{ zIndex: 1, letterSpacing: '-0.02em', fontWeight: '800' }}>AI–Powered Log Management System</h3>
+                <p style={{ zIndex: 1, lineHeight: '1.6' }}>Developed a role-based AI Log Management System enabling secure authentication, question handling, and real-time access to stored data. Enabled intelligent search and admin-controlled updates to improve data retrieval efficiency.</p>
+                <div className="project-links" style={{ zIndex: 1 }}>
                   <a href="https://github.com/Ritika2484/project" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm"><i className="fab fa-github"></i> GitHub</a>
                 </div>
-              </TiltCard>
-            </div>
+              </StaggerTiltCard>
+            </StaggerContainer>
           </div>
         </section>
 
@@ -335,8 +567,8 @@ function App() {
         <section id="experience" className="section section-dark">
           <div className="container">
             <FadeIn><h2 className="section-title">INTERNSHIP & <span className="gradient-text">EXPERIENCE</span></h2></FadeIn>
-            <div className="timeline">
-              <FadeIn delay={0.1} className="timeline-item">
+            <StaggerContainer className="timeline">
+              <StaggerChild className="timeline-item" y={15}>
                 <div className="timeline-dot"></div>
                 <div className="timeline-content">
                   <span className="timeline-date">Aug '25 - Jan '26</span>
@@ -348,8 +580,8 @@ function App() {
                     <li>Collaborated remotely with backend and design teams to integrate APIs, handle asynchronous data, and ensure smooth user experience.</li>
                   </ul>
                 </div>
-              </FadeIn>
-            </div>
+              </StaggerChild>
+            </StaggerContainer>
           </div>
         </section>
 
@@ -359,35 +591,53 @@ function App() {
             <div className="dual-grid">
               <FadeIn delay={0.1}>
                 <h2 className="section-title" style={{ textAlign: 'left' }}><span className="gradient-text">CERTIFICATIONS</span></h2>
-                <ul className="fancy-list">
-                  <li><i className="fas fa-award"></i><div><strong><a href="https://catalog-education.oracle.com/ords/certview/sharebadge?id=EDC4517D60765017E456279637194A66579406427EC9324CF88A26FBD2C18E8B" target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none', transition: 'color 0.3s' }} onMouseOver={(e) => e.target.style.color = 'var(--primary-blue)'} onMouseOut={(e) => e.target.style.color = 'inherit'}>Oracle Certified AI Foundation Associate <i className="fas fa-external-link-alt" style={{ fontSize: '0.8rem', marginLeft: '0.3rem' }}></i></a></strong><span>ORACLE (Apr '26)</span></div></li>
-                  <li><i className="fas fa-award"></i><div><strong><a href="https://ti-user-certificates.s3.amazonaws.com/ae62dcd7-abdc-4e90-a570-83eccba49043/0bc09883-5bc3-400f-a500-f298bc027ba5-ritika-kaushik-6012c0db-a39f-4287-93fb-7eefeac7e5d7-certificate.pdf" target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none', transition: 'color 0.3s' }} onMouseOver={(e) => e.target.style.color = 'var(--primary-blue)'} onMouseOut={(e) => e.target.style.color = 'inherit'}>MongoDB Certified Developer <i className="fas fa-external-link-alt" style={{ fontSize: '0.8rem', marginLeft: '0.3rem' }}></i></a></strong><span>MongoDB University (Mar '26)</span></div></li>
-                  <li><i className="fas fa-award"></i><div><strong><a href="https://www.cipherschools.com/certificate/preview?id=689a095d94c24c5a4c609b1e" target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none', transition: 'color 0.3s' }} onMouseOver={(e) => e.target.style.color = 'var(--primary-blue)'} onMouseOut={(e) => e.target.style.color = 'inherit'}>Data Structure Algorithms <i className="fas fa-external-link-alt" style={{ fontSize: '0.8rem', marginLeft: '0.3rem' }}></i></a></strong><span>CipherSchools (Jul '25)</span></div></li>
-                  <li><i className="fas fa-award"></i><div><strong><a href="https://drive.google.com/file/d/1f6QkWKOYQTKdZLHo51OFAmSKL9IxlfxV/view?usp=drive_link" target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none', transition: 'color 0.3s' }} onMouseOver={(e) => e.target.style.color = 'var(--primary-blue)'} onMouseOut={(e) => e.target.style.color = 'inherit'}>Privacy and Security in Social Media <i className="fas fa-external-link-alt" style={{ fontSize: '0.8rem', marginLeft: '0.3rem' }}></i></a></strong><span>NPTEL (Apr '25)</span></div></li>
-                </ul>
+                <StaggerContainer className="fancy-list" as="ul">
+                  <StaggerChild as="li" y={15} scale={1}>
+                    <i className="fas fa-award"></i>
+                    <div>
+                      <strong><a href="https://catalog-education.oracle.com/ords/certview/sharebadge?id=EDC4517D60765017E456279637194A66579406427EC9324CF88A26FBD2C18E8B" target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none', transition: 'color 0.3s' }} onMouseOver={(e) => e.target.style.color = 'var(--primary-blue)'} onMouseOut={(e) => e.target.style.color = 'inherit'}>Oracle Certified AI Foundation Associate <i className="fas fa-external-link-alt" style={{ fontSize: '0.8rem', marginLeft: '0.3rem' }}></i></a></strong>
+                      <span>ORACLE (Apr '26)</span>
+                    </div>
+                  </StaggerChild>
+                  <StaggerChild as="li" y={15} scale={1}>
+                    <i className="fas fa-award"></i>
+                    <div>
+                      <strong><a href="https://ti-user-certificates.s3.amazonaws.com/ae62dcd7-abdc-4e90-a570-83eccba49043/0bc09883-5bc3-400f-a500-f298bc027ba5-ritika-kaushik-6012c0db-a39f-4287-93fb-7eefeac7e5d7-certificate.pdf" target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none', transition: 'color 0.3s' }} onMouseOver={(e) => e.target.style.color = 'var(--primary-blue)'} onMouseOut={(e) => e.target.style.color = 'inherit'}>MongoDB Certified Developer <i className="fas fa-external-link-alt" style={{ fontSize: '0.8rem', marginLeft: '0.3rem' }}></i></a></strong>
+                      <span>MongoDB University (Mar '26)</span>
+                    </div>
+                  </StaggerChild>
+                  <StaggerChild as="li" y={15} scale={1}>
+                    <i className="fas fa-award"></i>
+                    <div>
+                      <strong><a href="https://www.cipherschools.com/certificate/preview?id=689a095d94c24c5a4c609b1e" target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none', transition: 'color 0.3s' }} onMouseOver={(e) => e.target.style.color = 'var(--primary-blue)'} onMouseOut={(e) => e.target.style.color = 'inherit'}>Data Structure Algorithms <i className="fas fa-external-link-alt" style={{ fontSize: '0.8rem', marginLeft: '0.3rem' }}></i></a></strong>
+                      <span>CipherSchools (Jul '25)</span>
+                    </div>
+                  </StaggerChild>
+                  <StaggerChild as="li" y={15} scale={1}>
+                    <i className="fas fa-award"></i>
+                    <div>
+                      <strong><a href="https://drive.google.com/file/d/1f6QkWKOYQTKdZLHo51OFAmSKL9IxlfxV/view?usp=drive_link" target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none', transition: 'color 0.3s' }} onMouseOver={(e) => e.target.style.color = 'var(--primary-blue)'} onMouseOut={(e) => e.target.style.color = 'inherit'}>Privacy and Security in Social Media <i className="fas fa-external-link-alt" style={{ fontSize: '0.8rem', marginLeft: '0.3rem' }}></i></a></strong>
+                      <span>NPTEL (Apr '25)</span>
+                    </div>
+                  </StaggerChild>
+                </StaggerContainer>
               </FadeIn>
               <FadeIn delay={0.2}>
                 <h2 className="section-title" style={{ textAlign: 'left' }}><span className="gradient-text">ACHIEVEMENTS</span></h2>
-                <div className="stats-grid">
-                  <Tilt tiltMaxAngleX={10} tiltMaxAngleY={10} glareEnable={true} glareMaxOpacity={0.1} glareColor="var(--primary-blue)" style={{ height: '100%' }}>
-                    <div className="minimal-card stat-card" style={{ height: '100%' }}>
-                      <div className="stat-number">300+</div>
-                      <div className="stat-label">Coding Problems Solved</div>
-                    </div>
-                  </Tilt>
-                  <Tilt tiltMaxAngleX={10} tiltMaxAngleY={10} glareEnable={true} glareMaxOpacity={0.1} glareColor="var(--primary-blue)" style={{ height: '100%' }}>
-                    <div className="minimal-card stat-card" style={{ height: '100%' }}>
-                      <div className="stat-number"><i className="fas fa-star" style={{ fontSize: '2.5rem', verticalAlign: 'middle', marginRight: '5px' }}></i>5</div>
-                      <div className="stat-label">C++ (HackerRank)</div>
-                    </div>
-                  </Tilt>
-                  <Tilt tiltMaxAngleX={10} tiltMaxAngleY={10} glareEnable={true} glareMaxOpacity={0.1} glareColor="var(--primary-blue)" style={{ gridColumn: '1 / -1', height: '100%' }}>
-                    <div className="minimal-card stat-card" style={{ height: '100%' }}>
-                      <div className="stat-number"><i className="fas fa-star" style={{ fontSize: '2.5rem', verticalAlign: 'middle', marginRight: '5px' }}></i>5</div>
-                      <div className="stat-label">Problem Solving (HackerRank)</div>
-                    </div>
-                  </Tilt>
-                </div>
+                <StaggerContainer className="stats-grid">
+                  <StaggerTiltCard className="stat-card">
+                    <div className="stat-number">300+</div>
+                    <div className="stat-label">Coding Problems Solved</div>
+                  </StaggerTiltCard>
+                  <StaggerTiltCard className="stat-card">
+                    <div className="stat-number"><i className="fas fa-star" style={{ fontSize: '2.5rem', verticalAlign: 'middle', marginRight: '5px' }}></i>5</div>
+                    <div className="stat-label">C++ (HackerRank)</div>
+                  </StaggerTiltCard>
+                  <StaggerTiltCard className="stat-card" style={{ gridColumn: '1 / -1' }}>
+                    <div className="stat-number"><i className="fas fa-star" style={{ fontSize: '2.5rem', verticalAlign: 'middle', marginRight: '5px' }}></i>5</div>
+                    <div className="stat-label">Problem Solving (HackerRank)</div>
+                  </StaggerTiltCard>
+                </StaggerContainer>
               </FadeIn>
             </div>
           </div>
@@ -398,43 +648,43 @@ function App() {
           <div className="container">
             <FadeIn><h2 className="section-title">EDUCATION & <span className="gradient-text">PROFILES</span></h2></FadeIn>
             <div className="dual-grid">
-              <div className="timeline">
-                <FadeIn delay={0.1} className="timeline-item">
+              <StaggerContainer className="timeline">
+                <StaggerChild className="timeline-item" y={15}>
                   <div className="timeline-dot"></div>
                   <div className="timeline-content">
                     <span className="timeline-date">Aug '23 - Present</span>
                     <h3>B.Tech Computer Science Engineering</h3>
                     <p style={{ color: 'var(--text-light)', opacity: 0.8 }}>Lovely Professional University &bull; Punjab, India</p>
                   </div>
-                </FadeIn>
-                <FadeIn delay={0.2} className="timeline-item">
+                </StaggerChild>
+                <StaggerChild className="timeline-item" y={15}>
                   <div className="timeline-dot"></div>
                   <div className="timeline-content">
                     <span className="timeline-date">Apr '21 - Mar '22</span>
                     <h3>Madhav Public School</h3>
                     <p className="highlight">Score: 84%</p>
                   </div>
-                </FadeIn>
-                <FadeIn delay={0.3} className="timeline-item">
+                </StaggerChild>
+                <StaggerChild className="timeline-item" y={15}>
                   <div className="timeline-dot"></div>
                   <div className="timeline-content">
                     <span className="timeline-date">Apr '19 - Mar '20</span>
                     <h3>Saraswati Balika Vidyalaya</h3>
                     <p className="highlight">Score: 94%</p>
                   </div>
-                </FadeIn>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                <TiltCard delay={0.3} className="comp-card">
+                </StaggerChild>
+              </StaggerContainer>
+              <StaggerContainer style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                <StaggerTiltCard className="comp-card">
                   <h3><i className="fas fa-trophy"></i> Competitive Programming</h3>
                   <p>Active participant in competitive programming platforms, continuously refining problem-solving skills and algorithmic thinking.</p>
                   <div className="cp-links">
-                    <a href="https://leetcode.com/" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">LeetCode</a>
+                    <a href="https://leetcode.com/u/ritika_2484/" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">LeetCode</a>
                     <a href="https://www.hackerrank.com/" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">HackerRank</a>
                   </div>
-                </TiltCard>
+                </StaggerTiltCard>
 
-                <TiltCard delay={0.4} className="comp-card">
+                <StaggerTiltCard className="comp-card">
                   <h3><i className="fab fa-github"></i> GitHub Overview</h3>
                   {githubData ? (
                     <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
@@ -457,8 +707,8 @@ function App() {
                   ) : (
                     <p style={{ marginTop: '1rem', color: 'var(--text-light)' }}>Loading stats...</p>
                   )}
-                </TiltCard>
-              </div>
+                </StaggerTiltCard>
+              </StaggerContainer>
             </div>
           </div>
         </section>
@@ -467,10 +717,10 @@ function App() {
         <section id="contact" className="section section-light">
           <div className="container">
             <FadeIn><h2 className="section-title">GET IN <span className="gradient-text">TOUCH</span></h2></FadeIn>
-            <div className="contact-container">
-              <FadeIn delay={0.1} className="minimal-card contact-info" style={{ background: 'transparent', border: 'none', padding: 0 }}>
+            <StaggerContainer className="contact-container">
+              <StaggerChild className="minimal-card contact-info" y={20} style={{ background: 'transparent', border: 'none', padding: 0 }}>
                 <h3>Let's start a project together</h3>
-                <p>Feel free to reach out for collaborations or just a friendly hello. I'm always open to discussing new projects, creative ideas or opportunities to be part of your visions.</p>
+                <p>Have an idea, opportunity, or project in mind? I’d love to connect, collaborate, and contribute through clean code, creative problem-solving, and modern web development solutions.</p>
                 <div className="contact-methods">
                   <a href="mailto:ritikakaushik2484@gmail.com" className="contact-method">
                     <div className="cm-icon"><i className="fas fa-envelope"></i></div>
@@ -487,8 +737,8 @@ function App() {
                     </div>
                   </a>
                 </div>
-              </FadeIn>
-              <TiltCard delay={0.2} className="contact-form-container">
+              </StaggerChild>
+              <StaggerTiltCard className="contact-form-container">
                 <form className="contact-form" onSubmit={handleSubmit}>
                   {submitStatus && <p style={{ color: submitStatus.includes('success') ? '#1C76FF' : '#f87171', marginBottom: '1rem', fontWeight: '600' }}>{submitStatus}</p>}
                   <div className="form-group">
@@ -505,8 +755,8 @@ function App() {
                   </div>
                   <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }}>Send Message</button>
                 </form>
-              </TiltCard>
-            </div>
+              </StaggerTiltCard>
+            </StaggerContainer>
           </div>
         </section>
 
@@ -527,7 +777,7 @@ function App() {
           <p>&copy; {new Date().getFullYear()} Ritika Kaushik. All rights reserved.</p>
           <div className="social-links" style={{ display: 'flex', gap: '1rem' }}>
             <a href="https://github.com/Ritika2484" target="_blank" rel="noreferrer"><i className="fab fa-github"></i></a>
-            <a href="https://www.linkedin.com/in/ritika-kaushik24" target="_blank" rel="noreferrer"><i className="fab fa-linkedin"></i></a>
+            <a href="https://www.linkedin.com/in/ritika-kaushik24/" target="_blank" rel="noreferrer"><i className="fab fa-linkedin"></i></a>
           </div>
         </div>
       </footer>
