@@ -365,7 +365,7 @@ function App() {
                   className="hero-cta"
                 >
                   <a href="#projects" className="btn btn-primary">View Projects</a>
-                  <a href="/ritikacv-2.pdf" download className="btn btn-outline"><i className="fas fa-download"></i> Resume</a>
+                  <a href="/Ritika_Kaushik.pdf" download="Ritika_Kaushik.pdf" className="btn btn-outline"><i className="fas fa-download"></i> Resume</a>
                   <a href="#contact" className="btn btn-outline">Contact Me</a>
                 </motion.div>
                 <motion.div
